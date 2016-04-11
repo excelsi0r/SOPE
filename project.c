@@ -23,8 +23,9 @@ void print_file(const char* path, int output)
 int main(int argc, char* argv[])
 {
 
-  char* filepath = "/tmp/files.txt";
-  int file;
+  //LOCAL VARIABLES
+  char* filepath = "/tmp/files.txt"; //files.txt dir
+  int file;                          //file descriptor
   
   DIR *dirp; 
   struct dirent *direntp; 
@@ -32,47 +33,51 @@ int main(int argc, char* argv[])
   char *str; 
   char name[200]; 
 
+  //ARGUMENTS TEST
   if(argc != 2)
   {
     printf("Usage: %s <directory>\n", argv[0]);
-    return 1;
+    exit(1);
   }
   
-  file = open(filepath, O_RDWR | O_APPEND | O_CREAT, 0600);
+  //CREATING files.txt IN TEMP AREA
+  if((file = open(filepath, O_RDWR | O_APPEND | O_CREAT, 0600)) < 0)
+  {
+    perror(argv[1]); 
+    exit(2); 
+  }
    
+  //OPENING DIRECTORY
   if((dirp = opendir( argv[1])) == NULL) 
-   { 
+  { 
       perror(argv[1]); 
-      exit(2); 
-     } 
-    while
-     ((direntp = readdir( dirp)) != NULL) 
-     { 
-      sprintf(name,"%s/%s",argv[1],direntp->d_name); 
-    // <----- NOTAR 
-                              // alternativa a chdir(); ex: anterior 
-    if
-     (
-    lstat
-    (name, &stat_buf)==-1)   
-    // testar com 
-    stat()
-      { 
-       perror("lstat ERROR"); 
-       exit(3); 
-      } 
-    //      printf("%10d - ",(int) stat_buf.st_ino); 
-    if
-     (S_ISREG(stat_buf.st_mode)) str = "regular"; 
+      exit(3); 
+  } 
+  
+  //CHANGING DESCRYPTOR OF STDOUT_FILENO TO file.txt IN ORDER TO WRITE THE DIR
+  dup2(file, STDOUT_FILENO); 
+  
+  while((direntp = readdir(dirp)) != NULL) 
+  { 
+    sprintf(name,"%s/%s",argv[1],direntp->d_name); 
+    
+    if(lstat(name, &stat_buf)==-1)   
+    { 
+     perror("lstat ERROR"); 
+     exit(3); 
+    } 
+
+    if (S_ISREG(stat_buf.st_mode)) 
+      str = "regular"; 
+    else if (S_ISDIR(stat_buf.st_mode)) 
+      str = "directory"; 
     else
-    if
-     (S_ISDIR(stat_buf.st_mode)) str = "directory"; 
-    else
-     str = "other"; 
-      printf("%-25s - %s\n", direntp->d_name, str); 
-     } 
-     closedir(dirp); 
-     exit(0);   
-  return 0;
+      str = "other"; 
+    printf("%-25s - %s\n", direntp->d_name, str); 
+  } 
+  
+  //CLOSING AND EXITING
+  closedir(dirp); 
+  exit(0);  
 }
 
