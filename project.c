@@ -74,6 +74,7 @@ int main(int argc, char* argv[])
     else
       str = "other"; 
     printf("%-25s - %s\n", direntp->d_name, str); 
+    
   } 
   
   //CLOSING AND EXITING
