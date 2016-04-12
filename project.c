@@ -8,17 +8,7 @@
 #include<unistd.h>
 #include<stdio.h>
 #include<string.h>
- 
-void print_file(const char* path, int output)
-{
-    struct stat file_info;
-    if(stat(path, &file_info) == 1) 
-    {
-        perror(strerror(errno));
-        perror("Error getting data about file.");
-        return;
-    } 
-}
+#include"lstdir.c"
  
 int main(int argc, char* argv[])
 {
@@ -27,11 +17,8 @@ int main(int argc, char* argv[])
   char* filepath = "/tmp/files.txt"; //files.txt dir
   int file;                          //file descriptor
   
-  DIR *dirp; 
-  struct dirent *direntp; 
-  struct stat stat_buf; 
-  char *str; 
-  char name[200]; 
+  DIR *dirp;                         //directory file
+
 
   //ARGUMENTS TEST
   if(argc != 2)
@@ -46,39 +33,55 @@ int main(int argc, char* argv[])
     perror(argv[1]); 
     exit(2); 
   }
-   
-  //OPENING DIRECTORY
+  
   if((dirp = opendir( argv[1])) == NULL) 
   { 
       perror(argv[1]); 
       exit(3); 
   } 
   
+  if(lstdir(dirp,argv[1]) == 0)
+    exit(4);
+  
   //CHANGING DESCRYPTOR OF STDOUT_FILENO TO file.txt IN ORDER TO WRITE THE DIR
-  dup2(file, STDOUT_FILENO); 
+  //dup2(file, STDOUT_FILENO); 
+   
+  //OPENING DIRECTORY
+  /*
+  if((dirp = opendir( argv[1])) == NULL) 
+  { 
+      perror(argv[1]); 
+      exit(3); 
+  } 
+  
+  
   
   while((direntp = readdir(dirp)) != NULL) 
   { 
-    sprintf(name,"%s/%s",argv[1],direntp->d_name); 
+    sprintf(filestr,"%s/%s",argv[1],direntp->d_name); 
     
-    if(lstat(name, &stat_buf)==-1)   
+    if(lstat(filestr, &stat_buf)==-1)   
     { 
      perror("lstat ERROR"); 
      exit(3); 
     } 
 
+    
     if (S_ISREG(stat_buf.st_mode)) 
-      str = "regular"; 
-    else if (S_ISDIR(stat_buf.st_mode)) 
-      str = "directory"; 
-    else
-      str = "other"; 
-    printf("%-25s - %s\n", direntp->d_name, str); 
+    {
+      printf("%-35s - %6li - ", direntp->d_name, stat_buf.st_size); 
+      char permission[100];
+      sprintf(permission, "%o", stat_buf.st_mode);
+      printf("%s - %li - %s\n", permission, stat_buf.st_mtime,filestr);
+      
+    }
+    
     
   } 
   
   //CLOSING AND EXITING
   closedir(dirp); 
+  */
   exit(0);  
 }
 
