@@ -38,9 +38,12 @@ int lstdir(const char * filepath)
     {
       if (S_ISREG(stat_buf.st_mode)) 
       {
-        printf("%-35s - %6li - ", direntp->d_name, stat_buf.st_size); 
-        printf("%li - ", stat_buf.st_ino); 
-        printf("%04o - %li - %s\n", stat_buf.st_mode & 0777, stat_buf.st_mtime,filestr);
+        printf("%-35s - ", direntp->d_name);        //name
+        printf("%li - ", stat_buf.st_mtime);        //last modified time
+        printf("%6li - ", stat_buf.st_size);        //size
+        printf("%04o - ", stat_buf.st_mode & 0777); //permisiion
+        printf("%li - ", stat_buf.st_ino);          //inode
+        printf("%s - \n",filestr);                     //path
         
       }
       else if(S_ISDIR(stat_buf.st_mode))
