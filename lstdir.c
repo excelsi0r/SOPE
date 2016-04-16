@@ -1,6 +1,7 @@
 #include<dirent.h>
 #include<errno.h>
 #include<sys/types.h>
+#include<sys/wait.h>
 #include<fcntl.h>
 #include<stdlib.h>
 #include<time.h>
@@ -30,7 +31,7 @@ int lstdir(const char * filepath)
     if(lstat(filestr, &stat_buf)==-1)   
     { 
      perror("lstat ERROR"); 
-     exit(3); 
+     exit(3);  
     } 
     
     if(strcmp(direntp->d_name, ".") !=0 && strcmp(direntp->d_name, "..") != 0)
@@ -38,6 +39,7 @@ int lstdir(const char * filepath)
       if (S_ISREG(stat_buf.st_mode)) 
       {
         printf("%-35s - %6li - ", direntp->d_name, stat_buf.st_size); 
+        printf("%li - ", stat_buf.st_ino); 
         printf("%04o - %li - %s\n", stat_buf.st_mode & 0777, stat_buf.st_mtime,filestr);
         
       }
@@ -45,25 +47,23 @@ int lstdir(const char * filepath)
       {
         pid_t pid = fork();
         
-        if(pid > 0)
+        if(pid == 0)
         {
-          strcat(filestr, "/");
           lstdir(filestr);
           exit(0);
         }
-        else if(pid == 0)
+        else if(pid > 0)
         {
           waitpid(pid, NULL,0);
         }
         
       }
     }
-    
   } 
 
   //CLOSING AND EXITING
   closedir(dirp);
-  return 0;
+  exit(0);
 }
 
 int main(int argc, char* argv[])
@@ -78,5 +78,5 @@ int main(int argc, char* argv[])
   if(lstdir(argv[1]) > 0)
     exit(2);
     
-  return 0; 
+  exit(0); 
 }
