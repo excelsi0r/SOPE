@@ -10,7 +10,7 @@
 #include<stdio.h>
 #include<string.h>
 
-#define MAX_BUFF 256
+#define MAX_BUFF 1024
 
 struct File
 {
@@ -22,11 +22,68 @@ struct File
   char path[MAX_BUFF];
 };
 
+int list_dir(const char * path, int file)
+{
+   int stdout_fileno = dup(STDOUT_FILENO);
+   dup2(file, STDOUT_FILENO); 
 
+  //calling lstdir
+  //child will execute and father waits
+  pid_t pid = fork();
+  
+  if(pid == 0)
+  {
+    if(execl("./lstdir","./lstdir",path,NULL) < 0)
+      exit(3);
+    fflush(stdout);
+    exit(0);
+  }
+  else if(pid > 0)
+  {
+     waitpid(pid, NULL, 0);
+     dup2(stdout_fileno, STDOUT_FILENO);
+  }
+  else
+  {
+    dup2(stdout_fileno, STDOUT_FILENO);
+    perror(path);
+    exit(-1);
+  }
+  
+  dup2(stdout_fileno, STDOUT_FILENO);
+  return 0;
+}
 
+int sort_file(const char * filepathaux, int file)
+{
+  int stdout_fileno = dup(STDOUT_FILENO);
+  dup2(file, STDOUT_FILENO);
 
+  //sorting filepathaux to file
+  pid_t pid = fork();
+  
+  if(pid == 0)
+  {
+    execlp("sort", "sort", filepathaux, NULL); 
+    fflush(stdout);
+    exit(0);
+  }
+  else if(pid > 0)
+  {
+     waitpid(pid, NULL, 0);
+     dup2(stdout_fileno, STDOUT_FILENO);
+  }
+  else
+  {
+    dup2(stdout_fileno, STDOUT_FILENO);
+    perror(filepathaux);
+    exit(-1);
+  }
+  dup2(stdout_fileno, STDOUT_FILENO);
+  return 0;
+}
 
-void str_split(struct File* stru, char str[])
+void str_split(struct File* stru, char * str)
 {
 
   char *token;
@@ -73,7 +130,7 @@ int test_link(struct File* stru1, struct File* stru2)
         perror(stru1->path);
       link(stru2->path, stru1->path);
       printf("Deleted %s and created hardlink to %s\n", stru1->path, stru2->path);
-      return 0;
+      return 1;
     }
     
     else if(stru1->time > stru2->time)
@@ -83,7 +140,7 @@ int test_link(struct File* stru1, struct File* stru2)
         perror(stru2->path);
       link(stru1->path, stru2->path);
       printf("Deleted %s and created hardlink to %s\n", stru2->path, stru1->path);
-      return 0;
+      return 1;
     }
   }
   
@@ -92,12 +149,15 @@ int test_link(struct File* stru1, struct File* stru2)
 
 }
 
-int search_lines(char path[])
+int search_lines(int hlinks,const char * path)
 {
+   int retval = 0;
    FILE *fr1;  
    FILE *fr2;         
-   char line1[512];
-   char line2[512];
+   char line1[MAX_BUFF];
+   char line2[MAX_BUFF];
+   int stdout_fileno = dup(STDOUT_FILENO);
+   dup2(hlinks, STDOUT_FILENO);
    
   struct File * Test1 = malloc (sizeof(*Test1)); //struct for file
   struct File * Test2 = malloc (sizeof(*Test2)); //struct for file
@@ -105,171 +165,150 @@ int search_lines(char path[])
 
    fr1 = fopen (path, "rt"); 
 
-   while(fgets(line1, 512, fr1) != NULL)
+   while(fgets(line1, MAX_BUFF, fr1) != NULL)
    {
       str_split(Test1, line1);
    
 	    fr2 = fopen (path, "rt"); 
-	    while(fgets(line2, 512, fr2) != NULL)
+	    while(fgets(line2, MAX_BUFF, fr2) != NULL)
       {
         str_split(Test2, line2);
-        test_link(Test1, Test2);
+        if(test_link(Test1, Test2) == 1)
+        {
+          retval = 1;
+        }
       }
    }
+   fflush(stdout);
    fclose(fr1);
    fclose(fr2);
-   return 0;  
+   free(Test1);
+   free(Test2);
+   dup2(stdout_fileno, STDOUT_FILENO);
+   return retval;  
 }
 
 int main(int argc, char* argv[])
 {
 
-  //LOCAL VARIABLES
+  //local variables
   char* filepath = "/tmp/files.txt";        //files.txt path dir
   char* filepathaux = "/tmp/filesaux.txt";  //filesaux.txt path dir
-  char *hlink = "/hlinks.txt";              //hardlinks
+  char* hlink = "/hlinks.txt";              //hardlinks.txt filespath
   int file;                                 //files.txt descriptor
   int fileaux;                              //filesaux.txt descriptor
-  int filelink;
-  int stdout_fileno;                        //stdout_fileno saved
+  int filelink;                             //hlinks.txt descriptor
   
+  //creating path for linkspath
   char linkspath[strlen(argv[1]) + strlen(hlink) + 1];
 	strcpy(linkspath, argv[1]);
 	strcat(linkspath, hlink);
   
 
-  //ARGUMENTS TEST
+  //argument test
   if(argc != 2)
   {
     printf("Usage: %s <directory>\n", argv[0]);
     exit(1);
   }
   
-
-  //ELIMINATING FILES (FORMATING)
-  remove(hlink);
+  //formating existing files
+  remove(linkspath);
   remove(filepathaux);
   remove(filepath);
   
-  //CREATING filesaux.txt IN TEMP AREA
+  //creating filesaux in tmp area
   if((fileaux = open(filepathaux, O_RDWR | O_APPEND | O_CREAT, 0600)) < 0)
   {
-    perror(argv[1]); 
+    perror(filepathaux); 
     exit(2); 
   }
   
-  //CREATING files.txt IN TEMP AREA
+  //creating files.txt tmp area
   if((file = open(filepath, O_RDWR | O_APPEND | O_CREAT, 0600)) < 0)
   {
-    perror(argv[1]); 
+    perror(filepath); 
     exit(2); 
   }
   
-  //CHANGING DESCRYPTOR OF STDOUT_FILENO TO fileaux.txt IN ORDER TO WRITE THE DIR
-  stdout_fileno = dup(STDOUT_FILENO);
-  dup2(fileaux, STDOUT_FILENO); 
-  
-  //CALLING LSTDIR
-  //CHILD WILL EXECUTE LSTDIR WHILE FATHER WAITS UNTIL CHILD IS DONE
-  pid_t pid = fork();
-  
-  if(pid == 0)
-  {
-    if(execl("./lstdir","./lstdir",argv[1],NULL) < 0)
-      exit(3);
-    exit(0);
-  }
-  else if(pid > 0)
-  {
-     waitpid(pid, NULL, 0);
-  }
-  
-  //CHANGING DESCRYPTOR OF STDOUT_FILENO TO files.txt IN ORDER TO WRITE THE DIR
-  dup2(file, STDOUT_FILENO); 
- 
-  //SORTING filesaux.txt AND SAVING TO files.txt
-  pid = fork();
-  
-  if(pid == 0)
-  {
-    execlp("sort", "sort", filepathaux, NULL); 
-    exit(0);
-  }
-  else if(pid > 0)
-  {
-     waitpid(pid, NULL, 0);
-  }
-   
-  //Removing filepath txt file
-  remove(filepathaux);
-  
-  
-  //CREATING files.txt IN TEMP AREA
+  //creating hlinks.txt in tmp area
   if((filelink = open(linkspath, O_RDWR | O_APPEND | O_CREAT, 0600)) < 0)
   {
     perror(linkspath); 
     exit(2); 
   }
+
+  //saving stdout_fileno descryptor and writing to file
+  if(list_dir(argv[1], fileaux) != 0)
+  {
+    printf("List Directory error \n");
+    exit(3); 
+  }
+  printf("Listed Directory\n");
+
+  //sorting from filesaux.txt to files.txt
+  if(sort_file(filepathaux, file) != 0)
+  {
+    printf("Sort File error \n"); 
+    exit(4);
+  }
+  printf("Sorted File\n");
+   
+  //creating hardlinks 
+  int ret =  search_lines(filelink, filepath);
+  if(ret < 0)
+  {
+      printf("Error Searching Lines\n");
+      exit(5);
+  }
+  else if(ret == 1)
+  {
+    printf("Hardlinks Created\n");
+  }
+  else if(ret == 0)
+  {
+    printf("No Hardlinks found\n");
+  }
   
-  dup2(filelink, STDOUT_FILENO);
   
-  //CREATING HARDLINKS
-  search_lines(filepath);
-  
-  
-  //==========================================================================================================================
-  //CREATING filesaux.txt IN TEMP AREA
+  remove(filepathaux);
   if((fileaux = open(filepathaux, O_RDWR | O_APPEND | O_CREAT, 0600)) < 0)
   {
     perror(argv[1]); 
     exit(2); 
   }
   
-  dup2(fileaux, STDOUT_FILENO); 
-  
-  //CALLING LSTDIR
-  //CHILD WILL EXECUTE LSTDIR WHILE FATHER WAITS UNTIL CHILD IS DONE
-  pid = fork();
-  
-  if(pid == 0)
+ //saving stdout_fileno descryptor and writing to file
+  if(list_dir(argv[1], fileaux) != 0)
   {
-    if(execl("./lstdir","./lstdir",argv[1],NULL) < 0)
-      exit(3);
-    exit(0);
+    printf("List Directory error \n");
+    exit(3); 
   }
-  else if(pid > 0)
-  {
-     waitpid(pid, NULL, 0);
-  }
+  printf("Listed Directory\n");
   
-  //CHANGING DESCRYPTOR OF STDOUT_FILENO TO files.txt IN ORDER TO WRITE THE DIR
-  dup2(file, STDOUT_FILENO); 
+  //temporary change to give enter in files.txt
+  int stdout_fileno = dup(STDOUT_FILENO);
+  dup2(file, STDOUT_FILENO);
+  printf("\n.:New Listed\n");
+  fflush(stdout);
+  dup2(stdout_fileno, STDOUT_FILENO);
   
- 
-  //SORTING filesaux.txt AND SAVING TO files.txt
-  pid = fork();
-  
-  if(pid == 0)
+
+  //sorting from filesaux.txt to files.txt
+  if(sort_file(filepathaux, file) != 0)
   {
-    execlp("sort", "sort", filepathaux, NULL);
-    exit(0);
+    printf("Sort File error \n"); 
+    exit(4);
   }
-  else if(pid > 0)
-  {
-     waitpid(pid, NULL, 0);
-  }
+  printf("Sorted File");
    
   //Removing filepath txt file
   remove(filepathaux);
   
-  //RESTORE STDOUT_FILENO
-  dup2(stdout_fileno, STDOUT_FILENO);
-
-  
   //Closing and exiting
   close(file);
   close(fileaux);
+  close(filelink);
   exit(0);  
-  
 }
 
