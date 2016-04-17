@@ -28,26 +28,32 @@ int lstdir(const char * filepath)
     {
       if (S_ISREG(stat_buf.st_mode)) 
       {
+      if(access(filestr, W_OK) == 0 && access(filestr, R_OK) == 0)
+        {
         printf("%-35s - ", direntp->d_name);        //name
         printf("%li - ", stat_buf.st_mtime);        //last modified time
         printf("%6li - ", stat_buf.st_size);        //size
         printf("%04o - ", stat_buf.st_mode & 0777); //permisiion
         printf("%li - ", stat_buf.st_ino);          //inode
-        printf("%s - \n",filestr);                     //path
+        printf("%s - \n",filestr);                     //path 
+        }
         
       }
       else if(S_ISDIR(stat_buf.st_mode))
       {
-        pid_t pid = fork();
-        
-        if(pid == 0)
+        if(access(filestr, W_OK) == 0 && access(filestr, R_OK) == 0)
         {
-          lstdir(filestr);
-          exit(0);
-        }
-        else if(pid > 0)
-        {
-          waitpid(pid, NULL,0);
+          pid_t pid = fork();
+          
+          if(pid == 0)
+          {
+            lstdir(filestr);
+            exit(0);
+          }
+          else if(pid > 0)
+          {
+            waitpid(pid, NULL,0);
+          }
         }
         
       }

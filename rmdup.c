@@ -94,11 +94,20 @@ void str_split(struct File* stru, char * str)
 
 int test_link(struct File* stru1, struct File* stru2)
 {
+  
   if(strcmp(stru1->path, stru2->path) == 0)
   {
     return 0;
   }
-    
+  
+  struct stat stat_buf1;
+  struct stat stat_buf2;
+  lstat(stru1->path, &stat_buf1);
+  lstat(stru2->path, &stat_buf2);
+  
+  if(stat_buf1.st_ino == stat_buf2.st_ino)
+    return 0;
+  
   //equal files  
   if((strcmp(stru1->name, stru2->name) == 0) && (stru1->size == stru2->size) && (stru1->perm == stru2->perm))
   {
@@ -121,7 +130,6 @@ int test_link(struct File* stru1, struct File* stru2)
       return 1;
     }
   }
-  
   return 0;
 
 
@@ -176,12 +184,12 @@ int main(int argc, char* argv[])
   int file;                                 //files.txt descriptor
   int fileaux;                              //filesaux.txt descriptor
   int filelink;                             //hlinks.txt descriptor
-  
+  struct stat mypath;                       //struct to test path
+ 
   //creating path for linkspath
   char linkspath[strlen(argv[1]) + strlen(hlink) + 1];
 	strcpy(linkspath, argv[1]);
 	strcat(linkspath, hlink);
-  
 
   //argument test
   if(argc != 2)
@@ -190,6 +198,23 @@ int main(int argc, char* argv[])
     exit(1);
   }
   
+  if(linkspath[0] != '/')
+  {
+    printf("Invalid link, must start with semicolon \n");
+    exit(1);
+  }
+  
+  if (stat(argv[1], &mypath) < 0)
+  {
+    printf("Invalid path, unable to find path\n");
+    exit(1);
+  }
+  else if (!S_ISDIR(mypath.st_mode))
+  {
+    printf("Invalid path\n");
+    exit(1);
+  }
+
   //formating existing files
   remove(linkspath);
   remove(filepathaux);
@@ -215,6 +240,7 @@ int main(int argc, char* argv[])
     perror(linkspath); 
     exit(2); 
   }
+   
 
   //saving stdout_fileno descryptor and writing to file
   if(list_dir(argv[1], fileaux) != 0)
@@ -231,7 +257,7 @@ int main(int argc, char* argv[])
     exit(4);
   }
   printf("Sorted File\n");
-   
+  
   //creating hardlinks 
   int ret =  search_lines(filelink, filepath);
   if(ret < 0)
